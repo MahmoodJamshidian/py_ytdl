@@ -16,16 +16,16 @@ class YTvideo:
         self._duration.find("span").clear()
         self._duration = self._duration.text.replace("\n", "").strip()
         self._thumbnail = bs.find("div", {"class": "info"}).find("img").attrs['src']
-        _vids, _auds = [i.find("tbody") for i in bs.find_all("table", {"class": "downloadsTable"})[:2]]
-        self._links = {"vid": [], "aud": []}
+        _vids, _nauds = [i.find("tbody") for i in bs.find_all("table", {"class": "downloadsTable"})[:2]]
+        self._links = {"vid": [], "naud": []}
         for _vid in _vids.find_all("tr"):
             _quality, _type, _size = [i.text for i in _vid.find_all("td")[:3]]
             _link = _vid.find_all("td")[3].find("a").attrs['href']
             self._links['vid'].append({'quality': _quality, "type": _type, "size": _size, "link": _link})
-        for _aud in _auds.find_all("tr"):
-            _quality, _type, _size = [i.text for i in _aud.find_all("td")[:3]]
-            _link = _aud.find_all("td")[3].find("a").attrs['href']
-            self._links['aud'].append({'quality': _quality, "type": _type, "size": _size, "link": _link})
+        for _naud in _nauds.find_all("tr"):
+            _quality, _type, _size = [i.text for i in _naud.find_all("td")[:3]]
+            _link = _naud.find_all("td")[3].find("a").attrs['href']
+            self._links['naud'].append({'quality': _quality, "type": _type, "size": _size, "link": _link})
         self._id = re.findall("vi_webp/([a-zA-Z0-9]*)/", self._thumbnail)[0]
         
     @property
