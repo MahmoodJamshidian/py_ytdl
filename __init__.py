@@ -1,50 +1,52 @@
-from typing import Literal
+from bs4 import BeautifulSoup
 import requests
-import time
-import json
 import re
 
 class YTvideo:
     def __init__(self, url: str):
         self._session = requests.session()
-        self._session.get("https://yt5s.io/en43")
-        self.req_key = re.findall("X-Requested-Key\":\"([A-Za-z0-9]*)\"", self._session.get("https://yt5s.io/yt5s/js/app.min.js?v=3").text)[0]
-        self._resp: dict = self._session.post("https://yt5s.io/api/ajaxSearch", data={"q": url, "vt": "home"}).json()
-        if self._resp.get("mess", "").startswith("No data found") or self._resp.get("p", "non") != "convert":
+        try:
+            bs = BeautifulSoup((req:=self._session.get(f"https://10downloader.com/download?v={url}&lang=en&type=video", timeout=5, allow_redirects=False)).text, "html.parser")
+            if req.status_code == 302:
+                raise RuntimeError
+        except requests.exceptions.ReadTimeout or RuntimeError:
             raise Exception("not found")
+        self._title = bs.find("span", {"class": "title"}).text
+        self._duration = bs.find("div", {"class": "duration"})
+        self._duration.find("span").clear()
+        self._duration = self._duration.text.replace("\n", "").strip()
+        self._thumbnail = bs.find("div", {"class": "info"}).find("img").attrs['src']
+        _vids, _auds = [i.find("tbody") for i in bs.find_all("table", {"class": "downloadsTable"})[:2]]
+        self._links = {"vid": [], "aud": []}
+        for _vid in _vids.find_all("tr"):
+            _quality, _type, _size = [i.text for i in _vid.find_all("td")[:3]]
+            _link = _vid.find_all("td")[3].find("a").attrs['href']
+            self._links['vid'].append({'quality': _quality, "type": _type, "size": _size, "link": _link})
+        for _aud in _auds.find_all("tr"):
+            _quality, _type, _size = [i.text for i in _aud.find_all("td")[:3]]
+            _link = _aud.find_all("td")[3].find("a").attrs['href']
+            self._links['aud'].append({'quality': _quality, "type": _type, "size": _size, "link": _link})
+        self._id = re.findall("vi_webp/([a-zA-Z0-9]*)/", self._thumbnail)[0]
         
     @property
     def id(self):
-        return self._resp.get("vid")
+        return self._id
     
     @property
     def title(self):
-        return self._resp.get("title")
+        return self._title
     
     @property
     def channel(self):
-        return self._resp.get("a")
+        raise NotImplementedError
     
     @property
     def links(self):
-        return self._resp.get("links")
+        return self._links
     
-    def download_link(self, type: Literal["mp3", "mp4", "ogg", "3gp"], quality: str):
-        if type in self.links:
-            if quality in (self.links[type][i]['k'] for i in self.links[type].keys()):
-                if not (s:=self._session.options("https://backend.svcenter.xyz/api/convert-by-45fc4be8916916ba3b8d61dd6e0d6994", headers={"Access-Control-Request-Headers": "x-requested-key", "Access-Control-Request-Method": "POST", "Origin": "https://yt5s.io"}).status_code) in range(200, 205):
-                    raise Exception("server not ready")
-                data = self._session.post("https://backend.svcenter.xyz/api/convert-by-45fc4be8916916ba3b8d61dd6e0d6994", headers={"X-Requested-Key": self.req_key}, data={"v_id": self._resp.get("vid"), "ftype": type, "fquality": quality, "token": self._resp.get("token"), "timeExpire": self._resp.get("timeExpires"), "client": "yt5s.io"}).json()
-                if data["c_status"] != "ok":
-                    raise Exception("error on generate url")
-                return data['d_url']
-            else:
-                raise Exception("quality not found")
-        else:
-            raise Exception("type not found")
-        
-    def download(self, type: Literal["mp3", "mp4", "ogg", "3gp"], quality: str, filepath: str):
+    @staticmethod
+    def download(cls, link: str, filepath: str):
         with open(filepath, "wb") as f:
-            with requests.get(self.download_link(type, quality), stream=True) as session:
+            with requests.get(link, stream=True) as session:
                 for buff in session.iter_content(1024):
                     f.write(buff)
