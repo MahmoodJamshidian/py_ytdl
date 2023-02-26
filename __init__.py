@@ -45,7 +45,7 @@ class YTvideo:
         return self._links
     
     @staticmethod
-    def download(cls, link: str, filepath: str):
+    def download(link: str, filepath: str):
         with open(filepath, "wb") as f:
             with requests.get(link, stream=True) as session:
                 for buff in session.iter_content(1024):
