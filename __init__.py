@@ -1,7 +1,5 @@
 from typing import Literal
 import requests
-import time
-import json
 import re
 
 class YTvideo:
